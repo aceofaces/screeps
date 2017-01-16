@@ -455,7 +455,7 @@ Creep.prototype.handleMineralCreep = function() {
         creep.room.memory.fullLab = 1;
       }
 
-      if (lab0.mineralAmount === 0) {
+      if (lab0.mineralAmount < 900) {
         creep.room.memory.fullLab = 0;
       }
     }
