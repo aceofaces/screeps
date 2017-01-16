@@ -449,7 +449,19 @@ Creep.prototype.handleMineralCreep = function() {
         if (lab0.cooldown === 0) {
           lab0.runReaction(lab1, lab2);
         }
+
       }
+      if (lab0.mineralAmount > 1000) {
+        creep.room.memory.fullLab = 1;
+      }
+
+      if (lab0.mineralAmount === 0) {
+        creep.room.memory.fullLab = 0;
+      }
+    }
+
+    if (creep.room.memory.fullLab === 1) {
+      creep.memory.state = 8;
     }
 
     if (room.memory.boosting && Object.keys(room.memory.boosting).length > 0) {
