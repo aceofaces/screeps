@@ -127,6 +127,21 @@ Room.prototype.orderMinerals = function() {
       RESOURCE_CATALYST,
       RESOURCE_GHODIUM
     ];
+    let compounds = [
+      RESOURCE_HYDROXIDE,
+      RESOURCE_ZYNTHIUM_KEANITE,
+      RESOURCE_UTRIUM_LEMERGITE,
+      RESOURCE_UTRIUM_HYDRIDE,
+      RESOURCE_UTRIUM_OXIDE,
+      RESOURCE_KEANIUM_HYDRIDE,
+      RESOURCE_KEANIUM_OXIDE,
+      RESOURCE_LEMERGIUM_HYDRIDE,
+      RESOURCE_LEMERGIUM_OXIDE,
+      RESOURCE_ZYNTHIUM_HYDRIDE,
+      RESOURCE_ZYNTHIUM_OXIDE,
+      RESOURCE_GHODIUM_HYDRIDE,
+      RESOURCE_GHODIUM_OXIDE,
+    ]
 
     let room = this;
     let orderByDistance = function(object) {
@@ -165,16 +180,41 @@ Room.prototype.orderMinerals = function() {
         }
       }
     }
+
+    for (let compound of compounds) {
+      if (!this.terminal.store[compound]) {
+        let roomsOther = _.sortBy(Memory.myRooms, orderByDistance);
+
+        for (let roomOtherName of roomsOther) {
+          if (roomOtherName == this.name) {
+            continue;
+          }
+          let roomOther = Game.rooms[roomOtherName];
+          if (!roomOther || roomOther === null) {
+            continue;
+          }
+          if (!roomOther.terminal) {
+            continue;
+          }
+          if ( !(compound in roomOther.terminal.store) ) {
+            continue;
+          }
+          if (!roomOther.terminal || roomOther.terminal.store.mineral < config.mineral.minAmount) {
+            continue;
+          }
+          roomOther.memory.compoundOrder = roomOther.memory.compoundOrder || {};
+          if (roomOther.memory.compoundOrder[room.name]) {
+            break;
+          }
+          roomOther.memory.compoundOrder[room.name] = compound;
+          break;
+        }
+      }
+    }
   }
-};
+}
 
 Room.prototype.handleTerminal = function() {
-  let minerals = this.find(FIND_MINERALS);
-  if (minerals.length === 0) {
-    return false;
-  }
-  let resource = minerals[0].mineralType;
-
   if (!this.terminal) {
     return false;
   }
@@ -182,28 +222,61 @@ Room.prototype.handleTerminal = function() {
   this.orderMinerals();
   this.reactions();
 
-  if (!this.memory.mineralOrder || Object.keys(this.memory.mineralOrder).length === 0) {
+  if (!this.memory.mineralOrder || Object.keys(this.memory.mineralOrder).length === 0 || !this.memory.compoundOrder || Object.keys(this.memory.compoundOrder).length === 0) {
     return false;
   }
 
-  let roomOtherName = Object.keys(this.memory.mineralOrder)[0];
-  let roomOther = Game.rooms[roomOtherName];
-  let order = this.memory.mineralOrder[roomOtherName];
-  let linearDistanceBetweenRooms = Game.map.getRoomLinearDistance(this.name, roomOtherName);
-  let energy = Math.ceil(0.1 * order * linearDistanceBetweenRooms);
+  if (this.memory.mineralOrder || Object.keys(this.memory.mineralOrder).length > 0) {
+    let minerals = this.find(FIND_MINERALS);
+    if (minerals.length === 0) {
+      return false;
+    }
+    let resource = minerals[0].mineralType;
 
-  if (this.terminal.store.energy < energy) {
-    //this.log('Terminal not enough energy');
-    this.memory.terminalTooLessEnergy = true;
-    return false;
+    let roomOtherName = Object.keys(this.memory.mineralOrder)[0];
+    let roomOther = Game.rooms[roomOtherName];
+    let order = this.memory.mineralOrder[roomOtherName];
+    let linearDistanceBetweenRooms = Game.map.getRoomLinearDistance(this.name, roomOtherName);
+    let energy = Math.ceil(0.1 * order * linearDistanceBetweenRooms);
+
+    if (this.terminal.store.energy < energy) {
+      //this.log('Terminal not enough energy');
+      this.memory.terminalTooLessEnergy = true;
+      return false;
+    }
+
+    this.memory.terminalTooLessEnergy = false;
+
+    if (this.terminal.store[resource] < order) {
+      return false;
+    }
+    this.terminal.send(resource, order, roomOtherName);
+    delete this.memory.mineralOrder[roomOtherName];
+//    return true;
   }
 
-  this.memory.terminalTooLessEnergy = false;
+  if (this.memory.compoundOrder || Object.keys(this.memory.compoundOrder).length > 0) {
+    let roomOtherName = Object.keys(this.memory.compoundOrder)[0];
+    let compound = this.memory.compoundOrder[roomOtherName]
+    let roomOther = Game.rooms[roomOtherName];
+    let order = 250;
+    let linearDistanceBetweenRooms = Game.map.getRoomLinearDistance(this.name, roomOtherName);
+    let energy = Math.ceil(0.1 * order * linearDistanceBetweenRooms);
 
-  if (this.terminal.store[resource] < order) {
-    return false;
+    if (this.terminal.store.energy < energy) {
+      //this.log('Terminal not enough energy');
+      this.memory.terminalTooLessEnergy = true;
+      return false;
+    }
+
+    this.memory.terminalTooLessEnergy = false;
+
+    if (this.terminal.store[compound] < order) {
+      return false;
+    }
+    this.terminal.send(compound, order, roomOtherName);
+    delete this.memory.compoundOrder[roomOtherName];
+    return true;
   }
-  this.terminal.send(resource, order, roomOtherName);
-  delete this.memory.mineralOrder[roomOtherName];
-  return true;
+
 };
