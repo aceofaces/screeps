@@ -455,13 +455,18 @@ Creep.prototype.handleMineralCreep = function() {
         creep.room.memory.fullLab = 1;
       }
 
-      if (lab0.mineralAmount < 900) {
+      if (lab0.mineralAmount < 100) {
         creep.room.memory.fullLab = 0;
       }
     }
 
     if (creep.room.memory.fullLab === 1) {
-      creep.memory.state = 8;
+      if (_.sum(creep.carry) > 0) {
+        creep.memory.state = 0;
+      }
+      if (_.sum(creep.carry) === 0) {
+        creep.memory.state = 8;
+      }
     }
 
     if (room.memory.boosting && Object.keys(room.memory.boosting).length > 0) {
